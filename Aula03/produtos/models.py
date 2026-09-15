@@ -63,7 +63,8 @@ class Cliente(models.Model):
     
     
     # Cria a classe Pedido
-    
+   
+
 class Pedido (models.Model):
     STATUS_CHOICES = [
         ("PENDENTE", "Pendente"),
@@ -97,6 +98,7 @@ class Pedido (models.Model):
     )
     
     
+     
     def total(self):
         return sum(
             item.subtotal()
