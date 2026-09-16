@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.auth.models import User
 # Create your models here.
 
 # Cria a classe Categoria
@@ -40,6 +40,12 @@ class Produto (models.Model):
 
 class Cliente(models.Model):
     
+    
+    # Relaciona o cliente com o usuario autenticado no Django
+    usuario = models.OneToOneField(
+        User, on_delete = models.CASCADE, null = True, blank = True
+    )
+    
     nome = models.CharField(max_length = 150)
     email = models.EmailField(
         unique = True # Registra como unico o email
@@ -57,7 +63,8 @@ class Cliente(models.Model):
     
     
     # Cria a classe Pedido
-    
+   
+
 class Pedido (models.Model):
     STATUS_CHOICES = [
         ("PENDENTE", "Pendente"),
@@ -91,6 +98,7 @@ class Pedido (models.Model):
     )
     
     
+     
     def total(self):
         return sum(
             item.subtotal()

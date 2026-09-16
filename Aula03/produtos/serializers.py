@@ -8,6 +8,74 @@ from .models import (
     ItemPedido
 )
 
+from django.contrib.auth.models import User
+from rest_framework import serializers
+from .models import Cliente
+
+
+
+# Classe usuarioserializer
+
+class CadastroUsuarioSerializers(serializers.Serializer):
+    
+    username = serializers.CharField()
+    password = serializers.CharField(write_only = True)
+    
+    nome = serializers.CharField()
+    email = serializers.EmailField()
+    telefone = serializers.CharField(
+        required = False,
+        allow_blank = True
+    )
+    
+    def validated_username(self, value):
+        
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "Este nome de usuario já está cadastrado"
+            )
+            
+            return value
+            
+    def validate_email(self, value):
+        
+        if Cliente.objects.filter(email=value).exists():
+            
+            raise serializers.ValidationError("Este email já está cadastrado")
+        return value
+       
+    def create(self, validated_data):
+        
+        #Cria o usuario de autenticação do Django
+        
+        usuario = User.objects.create_user(
+            username = validated_data['username'],
+            email = validated_data['email'],
+            password = validated_data['password']
+        )
+        
+        
+        # cria o cliente
+        
+        cliente = Cliente.objects.create(
+            usuario =usuario,
+            nome = validated_data['nome'],
+            email = validated_data['email'],
+            telefone = validated_data.get('telefone','')
+        )
+        
+        return cliente
+    
+    def to_representation(self, instance):
+        
+        return{
+            "id": instance.id,
+            "username":instance.usuario.username,
+            "nome":instance.nome,
+            "email":instance.email,
+            "telefone":instance.telefone
+        }
+
 
 # Categoria
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -59,37 +127,6 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
     def get_subtotal(self, obj):
         return obj.subtotal()
 
-
-# Pedido
-class PedidoSerializer(serializers.ModelSerializer):
-
-    total = serializers.SerializerMethodField(
-        read_only=True
-    )
-
-    class Meta:
-        model = Pedido
-
-        fields = [
-            "id",
-            "cliente",
-            "descricao",
-            "data_pedido",
-            "status",
-            "total"
-        ]
-
-        read_only_fields = [
-            "data_pedido",
-            "status"
-        ]
-
-    def get_total(self, obj):
-        return obj.total()
-
-
-
-
 class ItemPedidoDetalheSerializer(serializers.ModelSerializer):
     
     produto_nome = serializers.CharField(
@@ -115,6 +152,66 @@ class ItemPedidoDetalheSerializer(serializers.ModelSerializer):
 
     def get_subtotal(self, obj):
         return obj.subtotal()
+    
+    
+# Pedido
+class PedidoSerializer(serializers.ModelSerializer):
+
+    cliente = serializers.PrimaryKeyRelatedField(
+        read_only=True
+    )
+
+    itens = ItemPedidoDetalheSerializer(
+        many=True
+    )
+
+    total = serializers.SerializerMethodField(
+        read_only=True
+    )
+
+    class Meta:
+        model = Pedido
+
+        fields = [
+            "id",
+            "cliente",
+            "descricao",
+            "data_pedido",
+            "status",
+            "itens",
+            "total"
+        ]
+
+        read_only_fields = [
+            "id",
+            "cliente",
+            "data_pedido",
+            "status",
+            "total"
+        ]
+
+    def create(self, validated_data):
+
+        # Retira os itens antes de criar o pedido
+        itens_data = validated_data.pop("itens")
+
+        # Cria o pedido
+        pedido = Pedido.objects.create(
+            **validated_data
+        )
+
+        # Cria cada item e associa ao pedido criado
+        for item_data in itens_data:
+
+            ItemPedido.objects.create(
+                pedido=pedido,
+                **item_data
+            )
+
+        return pedido
+
+    def get_total(self, obj):
+        return obj.total()
 
 # Alteração do status do pedido
 class StatusPedidoSerializer(serializers.ModelSerializer):
